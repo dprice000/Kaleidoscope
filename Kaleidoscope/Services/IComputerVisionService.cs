@@ -9,5 +9,7 @@ namespace Kaleidoscope.Services
         Task<string> GenerateDescriptionAsnyc(FileStream stream);
 
         Task<IEnumerable<string>> GenerateTagsAsync(FileStream stream);
+
+        Task<Stream> GenerateThumbnailAsync(FileStream fileStream);
     }
 }

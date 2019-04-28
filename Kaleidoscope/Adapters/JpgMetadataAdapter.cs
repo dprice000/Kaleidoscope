@@ -22,17 +22,17 @@ namespace Kaleidoscope.Adapters
             MetaData = task.Result;          
         }
 
-        public async void Save()
+        public async Task SaveAsync()
         {
-            await photo.Properties.SavePropertiesAsync();
+            await MetaData.SavePropertiesAsync();
         }
 
-        public async void SaveTags(IEnumerable<string> tags)
+        public async Task SaveTags(IEnumerable<string> tags)
         {
             List<KeyValuePair<string, object>> list = new List<KeyValuePair<string, object>>();
-            var t = new BitmapTypedValue(tags.ToArray(), Windows.Foundation.PropertyType.StringArray);
-            list.Add(new KeyValuePair<string, object>("System.Keywords", t));
-            MetaData.SavePropertiesAsync(list.AsEnumerable());
+            var t = new BitmapTypedValue(string.Join(",", tags), Windows.Foundation.PropertyType.String);
+            list.Add(new KeyValuePair<string, object>(SystemProperties.Comment, t));
+            await MetaData.SavePropertiesAsync(list.AsEnumerable());
         }
 
         private async Task<ImageProperties> ReadProperties()

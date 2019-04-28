@@ -3,19 +3,19 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Kaleidoscope"
-    xmlns:viewmodels="using:Kaleidoscope.ViewModels"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Height="522.5" Width="990.5">
 
     <Grid>
-        <ToggleSwitch Header="Smart Tagging" IsOn="{Binding TaggingEnabled}" IsEnabled="{Binding CanConfigureProcess}" HorizontalAlignment="Left" Margin="81,259,0,0" VerticalAlignment="Top"/>
-        <ToggleSwitch Header="Thumbnail Generation" IsOn="{Binding ThumbnailEnabled}" IsEnabled="{Binding CanConfigureProcess}" HorizontalAlignment="Left" Margin="81,172,0,0" VerticalAlignment="Top" Width="149" RenderTransformOrigin="-0.122,0.203"/>
-        <ToggleSwitch Header="Auto Watermark" IsOn="{Binding WatermarkEnabled}" IsEnabled="{Binding CanConfigureProcess}"  HorizontalAlignment="Left" Margin="81,61,0,0" VerticalAlignment="Top" Width="145"/>
+        <ToggleSwitch Header="Smart Tagging" IsOn="{Binding TaggingEnabled, Mode=TwoWay}" IsEnabled="{Binding CanConfigureProcess}" HorizontalAlignment="Left" Margin="81,10,0,0" VerticalAlignment="Top"/>
+        <ToggleSwitch Header="Thumbnail Generation" IsOn="{Binding ThumbnailEnabled, Mode=TwoWay}" IsEnabled="{Binding CanConfigureProcess}" HorizontalAlignment="Left" Margin="81,145,0,0" VerticalAlignment="Top" Width="149" RenderTransformOrigin="-0.122,0.203"/>
+        <ToggleSwitch Header="Auto Watermark" IsOn="{Binding WatermarkEnabled, Mode=TwoWay}" IsEnabled="{Binding CanConfigureProcess}"  HorizontalAlignment="Left" Margin="81,0,0,0" VerticalAlignment="Center" Width="145"/>
         <Button Content="Browse..." Command="{Binding BrowseCommand}" HorizontalAlignment="Left" Margin="81,357,0,0" VerticalAlignment="Top" Width="96"/>
         <TextBox HorizontalAlignment="Left" Margin="206,357,0,0" Text="{Binding PhotoDirPath}" IsEnabled="False" VerticalAlignment="Top" Width="298"/>
         <Button Content="Process Files" Command="{Binding ProcessFilesCommand}" HorizontalAlignment="Left" Margin="81,409,0,0" VerticalAlignment="Top" Width="96"/>
         <ProgressBar HorizontalAlignment="Left" Minimum="0"  Maximum="{Binding PicturesTotal}" Value="{Binding ProcessedCount}"  Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVisibilityConverter}}" Height="13" Margin="843,509,0,0" VerticalAlignment="Top" Width="148"/>
+        <ToggleSwitch Header="Smart Title" IsEnabled="{Binding TaggingEnabled}" IsOn="{Binding SmartTitleEnabled, Mode=TwoWay}" ToolTipService.ToolTip="Generates image titles using AI" HorizontalAlignment="Left" Margin="129,75,0,0" VerticalAlignment="Top"/>
     </Grid>
 </Page>

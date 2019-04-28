@@ -26,20 +26,25 @@ namespace Kaleidoscope.Services
             visionClient.Endpoint = serviceEndpoint;
         }
 
-        public async Task<string> GenerateDescriptionAsnyc(FileStream stream)
+        public async Task<string> GenerateDescriptionAsnyc(FileStream fileStream)
         {
             VisualFeatureTypes[] features = new VisualFeatureTypes[] { VisualFeatureTypes.Description };
-            var results = await visionClient.AnalyzeImageInStreamAsync(stream, features);
+            var results = await visionClient.AnalyzeImageInStreamAsync(fileStream, features);
 
             return results.Description.Captions?[0].Text;
         }
 
-        public async Task<IEnumerable<string>> GenerateTagsAsync(FileStream stream)
+        public async Task<IEnumerable<string>> GenerateTagsAsync(FileStream fileStream)
         {
             VisualFeatureTypes[] features = new VisualFeatureTypes[] { VisualFeatureTypes.Tags };
-            var results = await visionClient.AnalyzeImageInStreamAsync(stream, features);
+            var results = await visionClient.AnalyzeImageInStreamAsync(fileStream, features);
 
             return results.Tags.Select(x => x.Name);
+        }
+
+        public async Task<Stream> GenerateThumbnailAsync(FileStream fileStream)
+        {
+            return await visionClient.GenerateThumbnailInStreamAsync(180, 180, fileStream, true);
         }
     }
 }

@@ -1,11 +1,12 @@
-﻿using Kaleidoscope.Adapters;
-using Kaleidoscope.Services;
+﻿using Kaleidoscope.Controllers;
+using Kaleidoscope.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Windows.Storage;
+using Windows.Storage.Search;
 using Windows.UI;
 using Windows.UI.ViewManagement;
 
@@ -13,15 +14,21 @@ namespace Kaleidoscope.ViewModels
 {
     public class MainViewModel : ViewModelBase
     {
-        private readonly IComputerVisionService visionService;
+        private IComputerVisionController visionController;
+        private Services.IWatermarkService watermarkService;
+        private Services.IToastService toastService;
+        private Services.IMessageBoxService messageBoxService;
 
         private bool watermarkEnabled;
         private bool thumbnailEnabled;
+        private bool smartTitleEnabled;
         private bool taggingEnabled;
         private bool isProcessing;
         private string photoDirPath;
         private int picturesTotal;
         private int processedCount;
+        private bool isInForeGround;
+        private string applicationName = "Kaleidocope";
 
         public DelegateCommand BrowseCommand { get; set; }
         public DelegateCommand ProcessFilesCommand { get; set; }
@@ -63,6 +70,25 @@ namespace Kaleidoscope.ViewModels
             set
             {
                 taggingEnabled = value;
+
+                if(!taggingEnabled)
+                {
+                    SmartTitleEnabled = false;
+                }
+
+                this.OnPropertyChanged();
+            }
+        }
+
+        public bool SmartTitleEnabled
+        {
+            get
+            {
+                return smartTitleEnabled;
+            }
+            set
+            {
+                smartTitleEnabled = value;
                 this.OnPropertyChanged();
             }
         }
@@ -130,24 +156,39 @@ namespace Kaleidoscope.ViewModels
             }
         }
 
+        public bool IsInForeground
+        {
+            get
+            {
+                return isInForeGround;
+            }
+            set
+            {
+                isInForeGround = value;
+                this.OnPropertyChanged();
+            }
+        }
+
         #endregion Properties
 
-        public MainViewModel(IComputerVisionService visionService)
+        public MainViewModel(IComputerVisionController visionController, Services.IWatermarkService watermarkService, Services.IToastService toastService, Services.IMessageBoxService messageBoxService)
         {
             InitializeTitleBar();
             InitializeStatusBar();
             InitializeCommands();
 
-            this.visionService = visionService;
+            this.visionController = visionController;
+            this.watermarkService = watermarkService;
+            this.toastService = toastService;
+            this.messageBoxService = messageBoxService;
         }
 
         private async void BrowseClick()
         {
             var folderPicker = new Windows.Storage.Pickers.FolderPicker();
-            //folderPicker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.Desktop;
             folderPicker.FileTypeFilter.Add("*");
 
-            Windows.Storage.StorageFolder folder = await folderPicker.PickSingleFolderAsync();
+            StorageFolder folder = await folderPicker.PickSingleFolderAsync();
             if (folder != null)
             {
                 // Application now has read/write access to all contents in the picked folder
@@ -164,53 +205,61 @@ namespace Kaleidoscope.ViewModels
 
         private void ProcessFilesClick()
         {
-            ProcessFiles();
-        }
-
-        private async void ProcessFiles()
-        {
             IsProcessing = true;
 
-            var photoFolder = await StorageFolder.GetFolderFromPathAsync(PhotoDirPath);
-            var photos = await photoFolder.GetFilesAsync();
+            var progress = new Progress<ProcessFilesProgress>();
+            progress.ProgressChanged += Progress_ProgressChanged;
+            ProcessFilesAsync(progress);
+        }
 
-            PicturesTotal = photos.Count;
+        private void Progress_ProgressChanged(object sender, ProcessFilesProgress e)
+        {
+            PicturesTotal = e.MaximumPictures;
+            ProcessedCount = e.ProcessedCount;
+        }
 
-            await Task.Run(async () =>
+        private async void ProcessFilesAsync(IProgress<ProcessFilesProgress> progress)
+        {
+            string processedDirPath = Path.Combine(PhotoDirPath, applicationName);
+            StorageFolder processedFolder = await CreateFolder(PhotoDirPath, applicationName);
+
+            var photos = await GetPhotosAsync(PhotoDirPath);
+            int processedCount = 0;
+
+            foreach (var photo in photos)
             {
-                foreach (var photo in photos)
+                progress?.Report(new ProcessFilesProgress()
                 {
-                    if (TaggingEnabled)
-                    {
-                        using (FileStream stream = new FileStream(photo.Path,
-                                    FileMode.Open, FileAccess.Read, FileShare.None,
-                                    bufferSize: 4096, useAsync: true))
-                        {
-                            string desc = await visionService.GenerateDescriptionAsnyc(stream);
-                            IEnumerable<string> tags = await visionService.GenerateTagsAsync(stream);
+                    MaximumPictures = photos.Count(),
+                    ProcessedCount = processedCount
+                });
 
-                            JpgMetadataAdapter jpeg = new JpgMetadataAdapter(photo);
-                            jpeg.MetaData.Title = desc;
-                            jpeg.Save();
-                            jpeg.SaveTags(tags.ToList());
-                        }
-                    }
-
-                    if (ThumbnailEnabled)
-                    {
-                            //TODO: Create Thumbnail
-                        }
-
-                    if (WatermarkEnabled)
-                    {
-                            //TODO: Do Watermarking
-                        }
-
-                    ProcessedCount++;
+                if (TaggingEnabled)
+                {
+                    await visionController.TagFile(processedFolder, photo, SmartTitleEnabled);
                 }
-            });
+
+                if (ThumbnailEnabled)
+                {
+                    await visionController.CreateThumbnail(processedFolder, photo);
+                }
+
+                if (WatermarkEnabled)
+                {
+                    watermarkService.AddTextWatermark(photo);
+                }
+
+                processedCount++;
+            }
 
             IsProcessing = false;
+
+            await messageBoxService.ShowMessageAsync("Processing Complete", "Done processing images.");
+
+            if (!IsInForeground)
+            {
+                toastService.ShowToastNotification("Processing Complete", "Done processing images.");
+            }
         }
 
         #region Initialization Methods
@@ -252,5 +301,21 @@ namespace Kaleidoscope.ViewModels
         }
 
         #endregion Initialization Methods
+
+        private async Task<StorageFolder> CreateFolder(string baseFolderPath, string subFolderName)
+        {
+                StorageFolder baseFolder = await StorageFolder.GetFolderFromPathAsync(baseFolderPath);
+                return await baseFolder.CreateFolderAsync(subFolderName, CreationCollisionOption.OpenIfExists);
+        }
+
+        private async Task<IReadOnlyList<StorageFile>> GetPhotosAsync(string photoDirPath)
+        {
+            var photoFolder = await StorageFolder.GetFolderFromPathAsync(photoDirPath);
+            List<string> fileTypeFilter = new List<string>();
+            fileTypeFilter.Add(".jpg");
+            var queryOptions = new QueryOptions(CommonFileQuery.OrderByName, fileTypeFilter);
+            photoFolder.CreateFileQueryWithOptions(queryOptions);
+            return await photoFolder.GetFilesAsync();
+        }
     }
 }
